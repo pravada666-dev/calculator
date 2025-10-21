@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        .calculator {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 25px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            max-width: 350px;
+            width: 100%;
+        }
+
+        .display {
+            background: #1a1a1a;
+            color: white;
+            font-size: 2.5em;
+            padding: 20px;
+            border-radius: 15px;
+            text-align: right;
+            margin-bottom: 20px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            word-break: break-all;
+            overflow: hidden;
+        }
+
+        .buttons {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .btn {
+            background: white;
+            border: none;
+            padding: 20px;
+            font-size: 1.4em;
+            border-radius: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 70px;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+        }
+
+        .btn:active {
+            transform: translateY(0);
+        }
+
+        .operator {
+            background: #ff9500;
+            color: white;
+        }
+
+        .clear {
+            background: #ff3b30;
+            color: white;
+        }
+
+        .equals {
+            background: #4cd964;
+            color: white;
+            grid-column: span 2;
+        }
+
+        .zero {
+            grid-column: span 2;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            color: #333;
+        }
+
+        .header h1 {
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+
+        .header p {
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <div class="calculator">
+        <div class="header">
+            <h1>✨ Калькулятор</h1>
+            <p>Простой и удобный</p>
+        </div>
+
+        <div class="display" id="display">0</div>
+
+        <div class="buttons">
+            <button class="btn clear" onclick="clearDisplay()">C</button>
+            <button class="btn operator" onclick="appendToDisplay('/')">/</button>
+            <button class="btn operator" onclick="appendToDisplay('*')">×</button>
+            <button class="btn operator" onclick="appendToDisplay('-')">-</button>
+
+            <button class="btn" onclick="appendToDisplay('7')">7</button>
+            <button class="btn" onclick="appendToDisplay('8')">8</button>
+            <button class="btn" onclick="appendToDisplay('9')">9</button>
+            <button class="btn operator" onclick="appendToDisplay('+')" style="grid-row: span 2">+</button>
+
+            <button class="btn" onclick="appendToDisplay('4')">4</button>
+            <button class="btn" onclick="appendToDisplay('5')">5</button>
+            <button class="btn" onclick="appendToDisplay('6')">6</button>
+
+            <button class="btn" onclick="appendToDisplay('1')">1</button>
+            <button class="btn" onclick="appendToDisplay('2')">2</button>
+            <button class="btn" onclick="appendToDisplay('3')">3</button>
+            <button class="btn equals" onclick="calculate()" style="grid-row: span 2">=</button>
+
+            <button class="btn zero" onclick="appendToDisplay('0')">0</button>
+            <button class="btn" onclick="appendToDisplay('.')">.</button>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+        tg.expand(); // Раскрыть на весь экран
+        tg.enableClosingConfirmation(); // Подтверждение при закрытии
+
+        let display = document.getElementById('display');
+        let currentInput = '0';
+        let shouldResetDisplay = false;
+
+        function updateDisplay() {
+            display.textContent = currentInput;
+        }
+
+        function appendToDisplay(value) {
+            if (currentInput === '0' || shouldResetDisplay) {
+                currentInput = value;
+                shouldResetDisplay = false;
+            } else {
+                currentInput += value;
+            }
+            updateDisplay();
+        }
+
+        function clearDisplay() {
+            currentInput = '0';
+            updateDisplay();
+        }
+
+        function calculate() {
+            try {
+                // Заменяем × на * для вычисления
+                let expression = currentInput.replace(/×/g, '*');
+
+                // Проверка на безопасность выражения
+                if (/[^0-9+\-*/.()]/.test(expression)) {
+                    throw new Error('Неверное выражение');
+                }
+
+                let result = eval(expression);
+
+                // Округляем до 10 знаков после запятой
+                result = Math.round(result * 10000000000) / 10000000000;
+
+                currentInput = result.toString();
+                updateDisplay();
+                shouldResetDisplay = true;
+
+            } catch (error) {
+                currentInput = 'Ошибка';
+                updateDisplay();
+                shouldResetDisplay = true;
+            }
+        }
+
+        // Обработка клавиатуры
+        document.addEventListener('keydown', function(event) {
+            const key = event.key;
+
+            if (key >= '0' && key <= '9') {
+                appendToDisplay(key);
+            } else if (key === '.') {
+                appendToDisplay('.');
+            } else if (key === '+') {
+                appendToDisplay('+');
+            } else if (key === '-') {
+                appendToDisplay('-');
+            } else if (key === '*') {
+                appendToDisplay('*');
+            } else if (key === '/') {
+                event.preventDefault();
+                appendToDisplay('/');
+            } else if (key === 'Enter' || key === '=') {
+                event.preventDefault();
+                calculate();
+            } else if (key === 'Escape' || key === 'c' || key === 'C') {
+                clearDisplay();
+            } else if (key === 'Backspace') {
+                if (currentInput.length > 1) {
+                    currentInput = currentInput.slice(0, -1);
+                } else {
+                    currentInput = '0';
+                }
+                updateDisplay();
+            }
+        });
+
+        // Инициализация
+        updateDisplay();
+    </script>
+</body>
+</html>
