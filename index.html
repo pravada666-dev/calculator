@@ -1,0 +1,333 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Калькулятор</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--tg-theme-bg-color, #ffffff);
+            color: var(--tg-theme-text-color, #000000);
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        .app {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .header {
+            padding: 16px;
+            background: var(--tg-theme-bg-color, #ffffff);
+            border-bottom: 1px solid var(--tg-theme-secondary-bg-color, #f0f0f0);
+            text-align: center;
+            position: relative;
+        }
+
+        .header-title {
+            font-size: 17px;
+            font-weight: 600;
+            color: var(--tg-theme-text-color, #000000);
+        }
+
+        .display-container {
+            padding: 20px 16px;
+            background: var(--tg-theme-bg-color, #ffffff);
+        }
+
+        .display {
+            font-size: 32px;
+            font-weight: 500;
+            text-align: right;
+            color: var(--tg-theme-text-color, #000000);
+            min-height: 40px;
+            word-break: break-all;
+            overflow-wrap: break-word;
+        }
+
+        .history {
+            font-size: 14px;
+            color: var(--tg-theme-hint-color, #999999);
+            text-align: right;
+            min-height: 18px;
+            margin-bottom: 8px;
+        }
+
+        .keypad {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1px;
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+            padding: 1px;
+        }
+
+        .btn {
+            background: var(--tg-theme-bg-color, #ffffff);
+            border: none;
+            font-size: 20px;
+            font-weight: 400;
+            color: var(--tg-theme-text-color, #000000);
+            cursor: pointer;
+            transition: background-color 0.1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 64px;
+        }
+
+        .btn:active {
+            background: var(--tg-theme-secondary-bg-color, #f0f0f0);
+        }
+
+        .btn-operator {
+            color: var(--tg-theme-button-color, #2481cc);
+            font-weight: 500;
+        }
+
+        .btn-equals {
+            background: var(--tg-theme-button-color, #2481cc);
+            color: var(--tg-theme-button-text-color, #ffffff);
+            font-weight: 500;
+        }
+
+        .btn-equals:active {
+            background: var(--tg-theme-button-color, #1c6ba5);
+            opacity: 0.9;
+        }
+
+        .btn-clear {
+            color: #ff3b30;
+            font-weight: 500;
+        }
+
+        /* Анимация нажатия */
+        @keyframes buttonPress {
+            0% { transform: scale(1); }
+            50% { transform: scale(0.95); }
+            100% { transform: scale(1); }
+        }
+
+        .btn:active {
+            animation: buttonPress 0.1s ease;
+        }
+
+        /* Специальные стили для разных тем */
+        @media (prefers-color-scheme: dark) {
+            .keypad {
+                background: #1c1c1d;
+            }
+
+            .btn {
+                background: #2c2c2e;
+            }
+
+            .btn:active {
+                background: #3a3a3c;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="app">
+        <div class="header">
+            <div class="header-title">Калькулятор</div>
+        </div>
+
+        <div class="display-container">
+            <div class="history" id="history"></div>
+            <div class="display" id="display">0</div>
+        </div>
+
+        <div class="keypad">
+            <button class="btn btn-clear" onclick="clearAll()">C</button>
+            <button class="btn btn-clear" onclick="clearEntry()">CE</button>
+            <button class="btn btn-operator" onclick="appendOperator('÷')">÷</button>
+            <button class="btn btn-operator" onclick="appendOperator('×')">×</button>
+
+            <button class="btn" onclick="appendNumber('7')">7</button>
+            <button class="btn" onclick="appendNumber('8')">8</button>
+            <button class="btn" onclick="appendNumber('9')">9</button>
+            <button class="btn btn-operator" onclick="appendOperator('-')">-</button>
+
+            <button class="btn" onclick="appendNumber('4')">4</button>
+            <button class="btn" onclick="appendNumber('5')">5</button>
+            <button class="btn" onclick="appendNumber('6')">6</button>
+            <button class="btn btn-operator" onclick="appendOperator('+')">+</button>
+
+            <button class="btn" onclick="appendNumber('1')">1</button>
+            <button class="btn" onclick="appendNumber('2')">2</button>
+            <button class="btn" onclick="appendNumber('3')">3</button>
+            <button class="btn btn-equals" onclick="calculate()" rowspan="2">=</button>
+
+            <button class="btn" onclick="appendNumber('0')" colspan="2">0</button>
+            <button class="btn" onclick="appendDecimal()">,</button>
+        </div>
+    </div>
+
+    <script>
+        // Инициализация Telegram Web App
+        const tg = window.Telegram.WebApp;
+
+        // Раскрываем на весь экран и настраиваем
+        tg.expand();
+        tg.enableClosingConfirmation();
+        tg.setHeaderColor('#2481cc');
+        tg.setBackgroundColor('#ffffff');
+
+        // Состояние калькулятора
+        let currentInput = '0';
+        let previousInput = '';
+        let operator = null;
+        let shouldResetDisplay = false;
+
+        const display = document.getElementById('display');
+        const history = document.getElementById('history');
+
+        function updateDisplay() {
+            display.textContent = formatNumber(currentInput);
+
+            // Показываем историю вверху
+            if (previousInput && operator) {
+                history.textContent = `${formatNumber(previousInput)} ${operator}`;
+            } else {
+                history.textContent = '';
+            }
+        }
+
+        function formatNumber(num) {
+            // Форматируем число для лучшего отображения
+            return num.replace('.', ',');
+        }
+
+        function appendNumber(num) {
+            if (shouldResetDisplay) {
+                currentInput = '0';
+                shouldResetDisplay = false;
+            }
+
+            if (currentInput === '0') {
+                currentInput = num;
+            } else {
+                currentInput += num;
+            }
+            updateDisplay();
+        }
+
+        function appendDecimal() {
+            if (shouldResetDisplay) {
+                currentInput = '0';
+                shouldResetDisplay = false;
+            }
+
+            if (!currentInput.includes('.')) {
+                currentInput += '.';
+            }
+            updateDisplay();
+        }
+
+        function appendOperator(op) {
+            if (operator !== null && !shouldResetDisplay) {
+                calculate();
+            }
+
+            previousInput = currentInput;
+            operator = op;
+            shouldResetDisplay = true;
+            updateDisplay();
+        }
+
+        function calculate() {
+            if (operator === null || shouldResetDisplay) return;
+
+            const prev = parseFloat(previousInput);
+            const current = parseFloat(currentInput);
+            let result;
+
+            switch (operator) {
+                case '+':
+                    result = prev + current;
+                    break;
+                case '-':
+                    result = prev - current;
+                    break;
+                case '×':
+                    result = prev * current;
+                    break;
+                case '÷':
+                    if (current === 0) {
+                        showError('Деление на ноль');
+                        return;
+                    }
+                    result = prev / current;
+                    break;
+                default:
+                    return;
+            }
+
+            // Округляем до 10 знаков
+            result = Math.round(result * 10000000000) / 10000000000;
+
+            currentInput = result.toString();
+            operator = null;
+            previousInput = '';
+            shouldResetDisplay = true;
+            updateDisplay();
+        }
+
+        function clearAll() {
+            currentInput = '0';
+            previousInput = '';
+            operator = null;
+            updateDisplay();
+        }
+
+        function clearEntry() {
+            currentInput = '0';
+            updateDisplay();
+        }
+
+        function showError(message) {
+            // Используем Telegram Web App для показа ошибки
+            tg.showPopup({
+                title: 'Ошибка',
+                message: message,
+                buttons: [{ type: 'ok' }]
+            }, () => {
+                clearAll();
+            });
+        }
+
+        // Обработка клавиатуры
+        document.addEventListener('keydown', (e) => {
+            if (e.key >= '0' && e.key <= '9') appendNumber(e.key);
+            if (e.key === '.') appendDecimal();
+            if (e.key === '+') appendOperator('+');
+            if (e.key === '-') appendOperator('-');
+            if (e.key === '*') appendOperator('×');
+            if (e.key === '/') { e.preventDefault(); appendOperator('÷'); }
+            if (e.key === 'Enter' || e.key === '=') { e.preventDefault(); calculate(); }
+            if (e.key === 'Escape') clearAll();
+            if (e.key === 'Backspace') clearEntry();
+        });
+
+        // Инициализация
+        updateDisplay();
+
+        // Подстраиваемся под изменения темы Telegram
+        tg.onEvent('themeChanged', updateDisplay);
+        tg.onEvent('viewportChanged', updateDisplay);
+    </script>
+</body>
+</html>
